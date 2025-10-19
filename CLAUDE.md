@@ -1,0 +1,3 @@
+- Use latest stable versions of any libraries specially in java
+- Do not write any sensitive data like passwords and credentials
+- avoid anything that has to do with maven when possible.

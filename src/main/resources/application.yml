@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: tel
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  cloud:
+    compatibility-verifier:
+      enabled: false
+
+server:
+  port: 8080
+
+# OpenTelemetry Configuration
+# Uses standard OTEL environment variables:
+# - OTEL_EXPORTER_OTLP_ENDPOINT (e.g., http://otel-collector:4318)
+# - OTEL_EXPORTER_OTLP_PROTOCOL (e.g., http/protobuf)
+# - OTEL_RESOURCE_ATTRIBUTES (e.g., service.name=gateway,service.version=1.0.0)
+
+management:
+  # Tracing Configuration
+  tracing:
+    sampling:
+      probability: 1.0
+
+  # OTLP endpoint configuration (uses OTEL_EXPORTER_OTLP_ENDPOINT if not set)
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+
+  # Metrics Configuration
+  metrics:
+    export:
+      # OTLP metrics export (endpoint from OTEL_EXPORTER_OTLP_ENDPOINT)
+      otlp:
+        enabled: true
+        url: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/metrics
+        step: 10s
+
+      # Prometheus metrics (backwards compatibility)
+      prometheus:
+        enabled: true
+
+    distribution:
+      percentiles-histogram:
+        http:
+          server:
+            requests: true
+
+    # Enable JVM and system metrics
+    enable:
+      jvm: true
+      process: true
+      system: true
+
+  # Actuator endpoints
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics
+
+# Logging - include trace context in MDC
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"

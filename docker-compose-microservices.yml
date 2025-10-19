@@ -1,0 +1,254 @@
+services:
+  # ==========================================
+  # MICROSERVICES CHAIN (5 services)
+  # ==========================================
+
+  # Gateway - Entry point (calls service-a)
+  gateway:
+    build: .
+    container_name: tel-gateway
+    environment:
+      - SPRING_APPLICATION_NAME=gateway
+      - SERVICE_NAME=gateway
+      - SERVICE_NEXT_URL=http://service-a:8081
+      - SERVER_PORT=8080
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=gateway,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=API Gateway - Entry point for microservices chain
+    ports:
+      - "8080:8080"
+    depends_on:
+      - otel-collector
+      - service-a
+    networks:
+      - microservices
+
+  # Service A (calls service-b)
+  service-a:
+    build: .
+    container_name: tel-service-a
+    environment:
+      - SPRING_APPLICATION_NAME=service-a
+      - SERVICE_NAME=service-a
+      - SERVICE_NEXT_URL=http://service-b:8082
+      - SERVER_PORT=8081
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-a,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service A - Data processing service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - otel-collector
+      - service-b
+    networks:
+      - microservices
+
+  # Service B (calls service-c)
+  service-b:
+    build: .
+    container_name: tel-service-b
+    environment:
+      - SPRING_APPLICATION_NAME=service-b
+      - SERVICE_NAME=service-b
+      - SERVICE_NEXT_URL=http://service-c:8083
+      - SERVER_PORT=8082
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-b,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service B - Business logic service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - otel-collector
+      - service-c
+    networks:
+      - microservices
+
+  # Service C (calls service-d)
+  service-c:
+    build: .
+    container_name: tel-service-c
+    environment:
+      - SPRING_APPLICATION_NAME=service-c
+      - SERVICE_NAME=service-c
+      - SERVICE_NEXT_URL=http://service-d:8084
+      - SERVER_PORT=8083
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-c,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service C - Orchestration service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - otel-collector
+      - service-d
+    networks:
+      - microservices
+
+  # Service D (publishes to RabbitMQ)
+  service-d:
+    build: .
+    container_name: tel-service-d
+    environment:
+      - SPRING_APPLICATION_NAME=service-d
+      - SERVICE_NAME=service-d
+      - SERVER_PORT=8084
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-d,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service D - RabbitMQ producer
+    ports:
+      - "8084:8084"
+    depends_on:
+      - otel-collector
+      - rabbitmq
+    networks:
+      - microservices
+
+  # Service E (consumes from RabbitMQ - end of chain)
+  service-e:
+    build: .
+    container_name: tel-service-e
+    environment:
+      - SPRING_APPLICATION_NAME=service-e
+      - SERVICE_NAME=service-e
+      - SERVER_PORT=8085
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-e,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service E - RabbitMQ consumer (end of chain)
+    ports:
+      - "8085:8085"
+    depends_on:
+      - otel-collector
+      - rabbitmq
+    networks:
+      - microservices
+
+  # ==========================================
+  # MESSAGE BROKER
+  # ==========================================
+
+  # RabbitMQ message broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: tel-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices
+
+  # ==========================================
+  # OBSERVABILITY STACK
+  # ==========================================
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      - tempo
+      - prometheus
+    networks:
+      - microservices
+
+  # Tempo for traces
+  tempo:
+    image: grafana/tempo:latest
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo-config.yaml:/etc/tempo.yaml
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"
+    networks:
+      - microservices
+
+  # Loki for logs
+  loki:
+    image: grafana/loki:latest
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - microservices
+
+  # Promtail for log collection
+  promtail:
+    image: grafana/promtail:latest
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./promtail-microservices-config.yaml:/etc/promtail/config.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - loki
+    networks:
+      - microservices
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-remote-write-receiver'
+    volumes:
+      - ./prometheus-microservices.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - microservices
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor,correlations
+    ports:
+      - "3000:3000"
+    depends_on:
+      - tempo
+      - loki
+      - prometheus
+    networks:
+      - microservices
+
+volumes:
+  tempo-data:
+  loki-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  microservices:
+    driver: bridge

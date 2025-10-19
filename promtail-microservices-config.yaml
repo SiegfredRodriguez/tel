@@ -1,0 +1,63 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Scrape Docker container logs for all microservices
+  - job_name: microservices
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+
+    relabel_configs:
+      # Only collect logs from our microservices
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(tel-gateway|tel-service-a|tel-service-b|tel-service-c|tel-service-d|tel-service-e)'
+        action: keep
+
+      # Extract service name from container name
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/tel-(.*)'
+        target_label: 'service_name'
+        replacement: '${1}'
+
+      # Add container name as label
+      - source_labels: ['__meta_docker_container_name']
+        target_label: 'container_name'
+
+      # Add container ID
+      - source_labels: ['__meta_docker_container_id']
+        target_label: 'container_id'
+
+    # Parse JSON logs and extract traceId
+    pipeline_stages:
+      # Only process lines that start with {" (JSON lines)
+      - match:
+          selector: '{job="microservices"}'
+          stages:
+            # Parse JSON log format
+            - json:
+                expressions:
+                  timestamp: '"@timestamp"'
+                  level: level
+                  thread: thread_name
+                  logger: logger_name
+                  message: message
+                  trace_id: traceId
+                  span_id: spanId
+
+            # Extract traceId as a label for correlation (only for valid JSON)
+            - labels:
+                traceId: trace_id
+                level: level
+
+            # Set timestamp from log
+            - timestamp:
+                source: timestamp
+                format: '2006-01-02T15:04:05.999999999Z07:00'

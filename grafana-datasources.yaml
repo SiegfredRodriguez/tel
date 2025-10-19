@@ -1,0 +1,72 @@
+apiVersion: 1
+
+datasources:
+  # Tempo for traces
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    uid: tempo
+    isDefault: true
+    editable: true
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: true
+        filterBySpanID: false
+        tags:
+          - key: service.name
+            value: service_name
+        mapLabels:
+          - traceId
+        customQuery: false
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        tags:
+          - key: service.name
+            value: service_name
+        queries:
+          - name: 'Request Rate'
+            query: 'rate(http_server_requests_seconds_count{job="tel"}[5m])'
+          - name: 'Request Duration'
+            query: 'rate(http_server_requests_seconds_sum{job="tel"}[5m]) / rate(http_server_requests_seconds_count{job="tel"}[5m])'
+          - name: 'CPU Usage'
+            query: 'process_cpu_usage{job="tel"}'
+          - name: 'Memory Usage'
+            query: 'jvm_memory_used_bytes{job="tel"}'
+          - name: 'GC Rate'
+            query: 'rate(jvm_gc_pause_seconds_count{job="tel"}[5m])'
+      serviceMap:
+        datasourceUid: prometheus
+      lokiSearch:
+        datasourceUid: loki
+
+  # Loki for logs
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    uid: loki
+    editable: true
+    jsonData:
+      derivedFields:
+        - datasourceUid: tempo
+          matcherRegex: '"traceId":"(\\w+)"'
+          name: TraceID
+          url: '$${__value.raw}'
+
+  # Prometheus for metrics
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    uid: prometheus
+    editable: true
+    jsonData:
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
