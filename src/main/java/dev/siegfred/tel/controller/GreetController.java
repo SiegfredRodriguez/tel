@@ -16,6 +16,12 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.List;
+import java.util.ArrayList;
+import org.springframework.web.client.RestClient;
 
 @RestController
 @RequestMapping("/api")
@@ -38,6 +44,11 @@ public class GreetController {
 
     @Autowired
     private Tracer tracer;
+
+    @Autowired
+    private RestClient restClient;
+
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     private static final String RABBITMQ_QUEUE = "tel.chain.queue";
 
@@ -156,6 +167,58 @@ public class GreetController {
         }
 
         logger.info("[{}] Returning response", serviceName);
+        return response;
+    }
+
+    @GetMapping("/fanout")
+    public Map<String, Object> fanout(@RequestParam(required = false, defaultValue = "fanout-test") String data) {
+        logger.info("[{}] Received RabbitMQ fan-out request with data: {}", serviceName, data);
+
+        // Add custom span attributes
+        Span currentSpan = tracer.currentSpan();
+        if (currentSpan != null) {
+            currentSpan.tag("request.data", data);
+            currentSpan.tag("request.type", "rabbitmq-fanout");
+            currentSpan.tag("messaging.pattern", "fan-out");
+            currentSpan.tag("messaging.exchange", "tel.fanout.exchange");
+            currentSpan.tag("fan-out.queues", "tel.fanout.queue.a,tel.fanout.queue.b,tel.fanout.queue.c");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("service", serviceName);
+        response.put("data", data);
+        response.put("timestamp", System.currentTimeMillis());
+        response.put("pattern", "rabbitmq-fanout");
+
+        if (rabbitTemplate != null) {
+            try {
+                logger.info("[{}] Publishing message to fan-out exchange: tel.fanout.exchange", serviceName);
+
+                // Prepare message payload
+                Map<String, Object> message = new HashMap<>();
+                message.put("source_service", serviceName);
+                message.put("data", data);
+                message.put("timestamp", System.currentTimeMillis());
+                message.put("message_type", "fanout");
+
+                // Publish to fanout exchange (will be delivered to all bound queues)
+                rabbitTemplate.convertAndSend("tel.fanout.exchange", "", message);
+
+                logger.info("[{}] Successfully published message to fan-out exchange", serviceName);
+                response.put("status", "Message sent to fanout exchange");
+                response.put("exchange", "tel.fanout.exchange");
+                response.put("target_queues", List.of("tel.fanout.queue.a", "tel.fanout.queue.b", "tel.fanout.queue.c"));
+                response.put("message", "Message will be delivered to ALL 3 consumers in parallel");
+
+            } catch (Exception e) {
+                logger.error("[{}] Error publishing to fan-out exchange", serviceName, e);
+                response.put("error", "Failed to publish to fan-out exchange: " + e.getMessage());
+            }
+        } else {
+            logger.warn("[{}] RabbitTemplate not available", serviceName);
+            response.put("error", "RabbitMQ not configured for this service");
+        }
+
         return response;
     }
 }

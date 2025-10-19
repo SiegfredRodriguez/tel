@@ -12,14 +12,19 @@ services:
       - SERVICE_NAME=gateway
       - SERVICE_NEXT_URL=http://service-a:8081
       - SERVER_PORT=8080
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_RESOURCE_ATTRIBUTES=service.name=gateway,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=API Gateway - Entry point for microservices chain
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=gateway,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=API Gateway - Entry point for microservices chain,created.by=J,built.with=Java
     ports:
       - "8080:8080"
     depends_on:
       - otel-collector
       - service-a
+      - rabbitmq
     networks:
       - microservices
 
@@ -34,7 +39,7 @@ services:
       - SERVER_PORT=8081
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-a,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service A - Data processing service
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-a,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service A - Data processing service,created.by=J,built.with=Java
     ports:
       - "8081:8081"
     depends_on:
@@ -54,7 +59,7 @@ services:
       - SERVER_PORT=8082
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-b,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service B - Business logic service
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-b,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service B - Business logic service,created.by=J,built.with=Java
     ports:
       - "8082:8082"
     depends_on:
@@ -74,7 +79,7 @@ services:
       - SERVER_PORT=8083
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-c,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service C - Orchestration service
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-c,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service C - Orchestration service,created.by=J,built.with=Java
     ports:
       - "8083:8083"
     depends_on:
@@ -97,7 +102,7 @@ services:
       - RABBITMQ_PASSWORD=guest
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-d,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service D - RabbitMQ producer
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-d,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service D - RabbitMQ producer,created.by=J,built.with=Java
     ports:
       - "8084:8084"
     depends_on:
@@ -120,7 +125,7 @@ services:
       - RABBITMQ_PASSWORD=guest
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-e,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service E - RabbitMQ consumer (end of chain)
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-e,service.version=1.0.0,deployment.environment=development,service.namespace=microservices,telemetry.sdk.language=java,service.description=Service E - RabbitMQ consumer (end of chain),created.by=J,built.with=Java
     ports:
       - "8085:8085"
     depends_on:

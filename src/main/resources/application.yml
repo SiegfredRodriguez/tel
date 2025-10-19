@@ -19,6 +19,14 @@ server:
 # - OTEL_EXPORTER_OTLP_PROTOCOL (e.g., http/protobuf)
 # - OTEL_RESOURCE_ATTRIBUTES (e.g., service.name=gateway,service.version=1.0.0)
 
+# Custom resource attributes - these will appear as metadata in Grafana traces
+otel:
+  resource:
+    attributes:
+      created.by: "J"
+      built.with: "Java"
+      service.version: "1.0.0"
+
 management:
   # Tracing Configuration
   tracing:
