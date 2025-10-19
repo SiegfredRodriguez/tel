@@ -37,27 +37,24 @@ scrape_configs:
 
     # Parse JSON logs and extract traceId
     pipeline_stages:
-      # Only process lines that start with {" (JSON lines)
-      - match:
-          selector: '{job="microservices"}'
-          stages:
-            # Parse JSON log format
-            - json:
-                expressions:
-                  timestamp: '"@timestamp"'
-                  level: level
-                  thread: thread_name
-                  logger: logger_name
-                  message: message
-                  trace_id: traceId
-                  span_id: spanId
+      # Parse JSON log format
+      - json:
+          expressions:
+            timestamp: '"@timestamp"'
+            level: level
+            thread: thread_name
+            logger: logger_name
+            message: message
+            trace_id: traceId
+            span_id: spanId
 
-            # Extract traceId as a label for correlation (only for valid JSON)
-            - labels:
-                traceId: trace_id
-                level: level
+      # Extract traceId as a label for correlation with traces
+      - labels:
+          traceId: trace_id
+          spanId: span_id
+          level: level
 
-            # Set timestamp from log
-            - timestamp:
-                source: timestamp
-                format: '2006-01-02T15:04:05.999999999Z07:00'
+      # Set timestamp from log
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02T15:04:05.999999999Z07:00'

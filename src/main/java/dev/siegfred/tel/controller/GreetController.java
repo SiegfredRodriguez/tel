@@ -1,8 +1,6 @@
 package dev.siegfred.tel.controller;
 
 import dev.siegfred.tel.client.ChainServiceClient;
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -16,11 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.List;
-import java.util.ArrayList;
 import org.springframework.web.client.RestClient;
 
 @RestController
@@ -41,9 +37,6 @@ public class GreetController {
 
     @Autowired(required = false)
     private RabbitTemplate rabbitTemplate;
-
-    @Autowired
-    private Tracer tracer;
 
     @Autowired
     private RestClient restClient;
@@ -92,21 +85,6 @@ public class GreetController {
     public Map<String, Object> chain(@RequestParam(required = false, defaultValue = "data") String data) {
         logger.info("[{}] Received chain request with data: {}", serviceName, data);
 
-        // Add custom span attributes for enriched trace metadata
-        Span currentSpan = tracer.currentSpan();
-        if (currentSpan != null) {
-            // Add custom business attributes
-            currentSpan.tag("request.data", data);
-            currentSpan.tag("service.description", "Microservice chain handler - " + serviceName);
-            currentSpan.tag("business.operation", "chain-processing");
-            currentSpan.tag("request.size", String.valueOf(data.length()));
-
-            // Add technical metadata
-            currentSpan.tag("programming.language", "Java 17");
-            currentSpan.tag("framework", "Spring Boot 3.5.6");
-            currentSpan.tag("component.type", "REST Controller");
-        }
-
         Map<String, Object> response = new HashMap<>();
         response.put("service", serviceName);
         response.put("data", data);
@@ -118,14 +96,6 @@ public class GreetController {
             if (rabbitTemplate != null) {
                 try {
                     logger.info("[{}] Publishing message to RabbitMQ queue: {}", serviceName, RABBITMQ_QUEUE);
-
-                    // Add custom span tags to current span (observation will create the span automatically)
-                    if (currentSpan != null) {
-                        currentSpan.tag("messaging.system", "rabbitmq");
-                        currentSpan.tag("messaging.destination.name", RABBITMQ_QUEUE);
-                        currentSpan.tag("messaging.operation.type", "send");
-                        currentSpan.tag("service.name", serviceName);
-                    }
 
                     // Prepare message payload
                     Map<String, Object> message = new HashMap<>();
@@ -173,16 +143,6 @@ public class GreetController {
     @GetMapping("/fanout")
     public Map<String, Object> fanout(@RequestParam(required = false, defaultValue = "fanout-test") String data) {
         logger.info("[{}] Received RabbitMQ fan-out request with data: {}", serviceName, data);
-
-        // Add custom span attributes
-        Span currentSpan = tracer.currentSpan();
-        if (currentSpan != null) {
-            currentSpan.tag("request.data", data);
-            currentSpan.tag("request.type", "rabbitmq-fanout");
-            currentSpan.tag("messaging.pattern", "fan-out");
-            currentSpan.tag("messaging.exchange", "tel.fanout.exchange");
-            currentSpan.tag("fan-out.queues", "tel.fanout.queue.a,tel.fanout.queue.b,tel.fanout.queue.c");
-        }
 
         Map<String, Object> response = new HashMap<>();
         response.put("service", serviceName);
